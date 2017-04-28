@@ -21,9 +21,8 @@ public class GameOverScreen extends Screen{
 		playAgain.addListener(new ClickListener() {
 			@Override
 			public void clicked (InputEvent event, float x, float y) {
-				// Here is where we'll change the screen to the game Screen
-				// For now it's changing back to the StartScreen
-				MyGdxGame.setScreen(new StartScreen());
+				// change the screen to a new GameScreen
+				MyGdxGame.setScreen(new GameScreen(game));
 			}
 		});
 		
