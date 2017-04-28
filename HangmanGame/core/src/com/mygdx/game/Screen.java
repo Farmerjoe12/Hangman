@@ -100,6 +100,7 @@ public abstract class Screen{
 		batch.begin();
 		bgSprite.draw(batch);
 		batch.end();
+		stage.act(Gdx.graphics.getDeltaTime());
 		stage.draw();
 	}
 	

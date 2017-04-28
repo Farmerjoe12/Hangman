@@ -1,22 +1,23 @@
 package com.mygdx.game;
 
 import com.badlogic.gdx.Gdx;
+import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.Sprite;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
-import com.badlogic.gdx.scenes.scene2d.ui.Table;
+import com.badlogic.gdx.scenes.scene2d.InputEvent;
+import com.badlogic.gdx.scenes.scene2d.ui.Button;
+import com.badlogic.gdx.scenes.scene2d.ui.Button.ButtonStyle;
+import com.badlogic.gdx.scenes.scene2d.ui.Label;
+import com.badlogic.gdx.scenes.scene2d.ui.Label.LabelStyle;
+import com.badlogic.gdx.scenes.scene2d.ui.TextField;
+import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
 
 public class GameScreen extends Screen {
 
-	// originX & Y here are used to position the gallows
-	private float originX = 230;
-	private float originY = 125;
-	
-	private Table mainTable;
-	private Table gallows;
-	private Table chosen; 
-	private Table input;
-	private Table blanks;
+	// originX & Y here are used to position the gallows & hangman
+	private float originX = 75;
+	private float originY = 175;
 	
 	private SpriteBatch batch;	
 	private Texture gallows_Stage;
@@ -47,18 +48,15 @@ public class GameScreen extends Screen {
 	private Sprite blank_Sprite;
 	
 	// used for testing wordBlanks spacing
-	private String word = "1234567890123"; 
-	private int wordLength = word.length();
+	private String word = ""; 
+	
+	private HangmanEngine h;
 	
 	GameScreen(MyGdxGame game_) {
 		super(game_);
-		
-		// Here are the tables that may or may not be used for organization
-		mainTable = new Table();
-		gallows = new Table();
-		chosen = new Table();
-		input = new Table();
-		blanks = new Table();
+
+		// Creating the hangman before other logic
+		newGame();		
 		
 		// Create bodyParts array
 		createBodyPartsArray();
@@ -66,7 +64,73 @@ public class GameScreen extends Screen {
 		// Creates blanks array
 		createBlanksArray();
 		
-		// Here are the textures and sprites for the gallows parts
+		// Create gallows
+		createGallows();
+		
+		// Create input functionality
+		createInput();
+		
+		
+	}
+	
+	private void newGame() {
+		h = new HangmanEngine();
+		word = h.getChosenWord();
+		System.out.println("Chosen word is: " + h.getChosenWord());
+	}
+	
+	private void createInput() {
+		// Field Label
+		Label inputLabel = new Label("Type Guess: ", skin);
+		LabelStyle labelStyle = new LabelStyle();
+		labelStyle.font = font;
+		labelStyle.fontColor = Color.BLACK;
+		inputLabel.setStyle(labelStyle);
+		inputLabel.setPosition(350, 210);
+		stage.addActor(inputLabel);
+		
+		// TextField
+		final TextField inputField = new TextField("", skin);
+		inputField.setWidth(50);
+		inputField.setPosition(485,200);
+		stage.addActor(inputField);
+		
+		// Confirm label
+		Label confLabel = new Label("Confirm Guess: ", skin);
+		confLabel.setStyle(labelStyle);
+		confLabel.setPosition(350, 150);
+		stage.addActor(confLabel);
+		
+		// Confirm button
+		final Button confButton = new Button();
+		ButtonStyle bStyle = new ButtonStyle();
+		bStyle.up = skin.getDrawable("round-gray");
+		bStyle.down = skin.getDrawable("round-dark-gray");
+		confButton.setStyle(bStyle);
+		confButton.setPosition(525, 150);
+		confButton.setSize(50, 25);
+		confButton.addListener(new ClickListener() {
+			@Override
+			public void clicked (InputEvent event, float x, float y) {
+				h.guessLetter(inputField.getText());
+				System.out.println("Current word is: " + h.getCurrentWord());
+				
+				// if letter is not in word: 
+				//		add letter into letter array and update
+				// if letter in word
+				//   	add letter into letter array
+				// 		draw letter above blanks
+				
+				// end game condition				
+				if ( h.isSolved() || h.getWrongGuessTally() == 6) {
+					MyGdxGame.setScreen(new GameOverScreen());
+				}
+			}
+		});
+		stage.addActor(confButton);		
+	}
+	
+	private void createGallows() {
 		gallows_Stage = new Texture(Gdx.files.internal("HangmanPieces/Hangman_0001s_0003_Stage.png"));
 		stage_Sprite = new Sprite(gallows_Stage);
 		gallows_Post = new Texture(Gdx.files.internal("HangmanPieces/Hangman_0001s_0002_Post.png"));
@@ -76,57 +140,35 @@ public class GameScreen extends Screen {
 		gallows_Noose = new Texture(Gdx.files.internal("HangmanPieces/Hangman_0001s_0000_Noose.png"));
 		noose_Sprite = new Sprite(gallows_Noose);
 		batch = new SpriteBatch();
-		
-		
-		
-		// adding the mainTable to the stage
-		stage.addActor(mainTable);
-		mainTable.setFillParent(true);
-		
-		// initializing the gallows and organizing on the "Stage"
-		gallows.setFillParent(false);		
-		mainTable.add(gallows).top().left();
-		
-		// initializing the blanks and organizing on the "Stage"
-		blanks.setFillParent(false);		
-		mainTable.add(blanks).top().left();
-		
-
-		
 	}
 	
 	/**
 	 * This method will load all textures and create all blanks Sprites, then 
 	 * @return the @param wordBlanks which is a Sprite[]
 	 */
-	public Sprite[] createBlanksArray() {
-		wordBlanks = new Sprite[wordLength];
+	private Sprite[] createBlanksArray() {
+		wordBlanks = new Sprite[word.length()];
 		
 		for(int i = 0; i < word.length(); i ++) {
 			blank = new Texture(Gdx.files.internal("HangmanPieces/Hangman_0002s_0005_LetterSpace.png"));
 			blank_Sprite = new Sprite(blank);
-			blank_Sprite.setOrigin((328 - (25 * word.length())) + (49 * i),  50);
+			blank_Sprite.setOrigin(75 + 49*i,  50);
+			//(328 - (25 * word.length())) + (49 * i)
 			wordBlanks[i] = blank_Sprite;
 		}	
 		
-		return wordBlanks;
-	
+		return wordBlanks;	
 	}
 	
 	// draws blanks for word
-	public void drawBlanks() {
-		for(int i = 0; i < wordLength; i ++){
+	private void drawBlanks() {
+		for(int i = 0; i < word.length(); i ++){
 			batch.draw(wordBlanks[i], wordBlanks[i].getOriginX(), wordBlanks[i].getOriginY());
 		}
 	}
 	
-		/** drawGallows is used to position the gallows on the screen absolutely
-		 * @param originX 
-		 * @param originY
-		 * 		originX & Y are used as the origin points to draw the gallows
-		 * 			where 0,0 is the bottom left corner of the screen
-		 * **/
-	public void drawGallows() {
+	// draws the gallows at the origin points	
+	private void drawGallows() {
 		// All logic for organizing and drawing gallows
 		batch.draw(stage_Sprite, originX, originY, 192, 58);
 		batch.draw(post_Sprite, originX+150, originY+58, 10, 228);
@@ -139,68 +181,59 @@ public class GameScreen extends Screen {
 	 * @return the @param bodyParts which is a Sprite[]
 	 */
 	private Sprite[] createBodyPartsArray() {
+		// 230, 125
 		bodyParts = new Sprite[6];
 		head = new Texture(Gdx.files.internal("HangmanPieces/Hangman_0000s_0004_Head.png"));
 		head_Sprite = new Sprite(head);
-		head_Sprite.setOrigin(285, 325);
-		// head_Sprite.setPosition(x,y);
-		// head_Sprite position here
+		head_Sprite.setOrigin(originX + 55, originY + 200);
+		
 		bodyParts[0] = head_Sprite;
 		body = new Texture(Gdx.files.internal("HangmanPieces/Hangman_0000s_0005_Body.png"));
 		body_Sprite = new Sprite(body);
-		body_Sprite.setOrigin(300, 240);
+		body_Sprite.setOrigin(originX + 70, originY + 115);
+		//300, 240
 		
 		bodyParts[1] = body_Sprite;
 		lArm = new Texture(Gdx.files.internal("HangmanPieces/Hangman_0000s_0001_LeftArm.png"));
 		lArm_Sprite = new Sprite(lArm);
-		lArm_Sprite.setOrigin(257, 295);
+		lArm_Sprite.setOrigin(originX + 27, originY + 170);
+		//257, 295
 		
 		bodyParts[2] = lArm_Sprite;
 		rArm = new Texture(Gdx.files.internal("HangmanPieces/Hangman_0000s_0000_RightArm.png"));
 		rArm_Sprite = new Sprite(rArm);
-		rArm_Sprite.setOrigin(302, 295);
-		
+		rArm_Sprite.setOrigin(originX + 72, originY + 170);
 		bodyParts[3] = rArm_Sprite;
+		//302, 295
+		
 		lLeg = new Texture(Gdx.files.internal("HangmanPieces/Hangman_0000s_0003_LeftLeg.png"));
 		lLeg_Sprite = new Sprite(lLeg);
-		lLeg_Sprite.setOrigin(272, 202);
+		lLeg_Sprite.setOrigin(originX + 42, originY + 77);
 		bodyParts[4] = lLeg_Sprite;
+		//272, 202
 		
 		rLeg = new Texture(Gdx.files.internal("HangmanPieces/Hangman_0000s_0002_RightLeg.png"));
 		rLeg_Sprite = new Sprite(rLeg);
-		rLeg_Sprite.setOrigin(300, 202);
+		rLeg_Sprite.setOrigin(originX + 70, originY + 77);
 		bodyParts[5] = rLeg_Sprite;		
-		
+		//300, 202
 		return bodyParts;
 	}
 	
-	private void drawBodyParts(int wrongGuessNum) {
-		/**
+	private void drawBodyParts(int wrongGuessNum) {		
 		// logic for drawing body parts goes here
 		// Body parts have to have origin set before this method will work correctly
 		for (int i = 0; i < wrongGuessNum; i++) {
 			// 
 			batch.draw(bodyParts[i], bodyParts[i].getOriginX(), bodyParts[i].getOriginY());
 		}
-		**/
-		
-		// tester method
-		batch.draw(bodyParts[0], bodyParts[0].getOriginX(), bodyParts[0].getOriginY());
-		batch.draw(bodyParts[1], bodyParts[1].getOriginX(), bodyParts[1].getOriginY());
-		batch.draw(bodyParts[2], bodyParts[2].getOriginX(), bodyParts[2].getOriginY());
-		batch.draw(bodyParts[3], bodyParts[3].getOriginX(), bodyParts[3].getOriginY());
-		batch.draw(bodyParts[4], bodyParts[4].getOriginX(), bodyParts[4].getOriginY());
-		batch.draw(bodyParts[5], bodyParts[5].getOriginX(), bodyParts[5].getOriginY());
-	}
-	
-	
-	
+	}	
 	
 	public void render() {
 		super.render();	
 		batch.begin();
 		drawGallows();
-		drawBodyParts(1);
+		drawBodyParts(h.getWrongGuessTally());
 		drawBlanks();
 		batch.end();
 	}
